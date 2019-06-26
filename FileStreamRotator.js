@@ -102,7 +102,6 @@ var _checkDailyAndTest = function(freqType) {
         case 'custom':
         case 'daily':
             return {type: freqType, digit: undefined};
-            break;
         case 'test':
             return {type: freqType, digit: 0};
     }
@@ -165,13 +164,11 @@ FileStreamRotator.getDate = function(format, date_format) {
                 return moment()
                     .minutes(minute)
                     .format(date_format);
-                break;
             case 'h':
                 var hour = Math.floor(moment().hour() / format.digit) * format.digit;
                 return moment()
                     .hour(hour)
                     .format(date_format);
-                break;
             case 'daily':
             case 'custom':
             case 'test':
@@ -203,10 +200,10 @@ FileStreamRotator.setAuditLog = function(max_logs, audit_file, log_file) {
             var baseLog = path.dirname(log_file.replace(/%DATE%.+/, '_filename'));
             try {
                 if (audit_file) {
-                    var full_path = path.resolve(audit_file);
+                    const full_path = path.resolve(audit_file);
                     _rtn = JSON.parse(fs.readFileSync(full_path, {encoding: 'utf-8'}));
                 } else {
-                    var full_path = path.resolve(baseLog + '/' + '.audit.json');
+                    const full_path = path.resolve(baseLog + '/' + '.audit.json');
                     _rtn = JSON.parse(fs.readFileSync(full_path, {encoding: 'utf-8'}));
                 }
             } catch (e) {
@@ -410,7 +407,6 @@ FileStreamRotator.getStream = function(options) {
     if (fileSize) {
         var lastLogFile = null;
         var t_log = logfile;
-        var f = null;
         if (auditLog && auditLog.files && auditLog.files instanceof Array && auditLog.files.length > 0) {
             var lastEntry = auditLog.files[auditLog.files.length - 1].name;
             if (lastEntry.match(t_log)) {
@@ -422,7 +418,7 @@ FileStreamRotator.getStream = function(options) {
                 }
             }
         }
-        while ((f = fs.existsSync(t_log))) {
+        while (fs.existsSync(t_log)) {
             lastLogFile = t_log;
             fileCount++;
             t_log = logfile + '.' + fileCount;

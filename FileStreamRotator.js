@@ -26,6 +26,9 @@ var EventEmitter = require('events');
  *
  *   - `filename`       Filename including full path used by the stream
  *
+ *   - `reserveFilename`Reserve filename and archive files with timeStam.
+ *                      Should not use with '%DATE%' placeholder.
+ *
  *   - `frequency`      How often to rotate. Options are 'daily', 'custom' and 'test'. 'test' rotates every minute.
  *                      If frequency is set to none of the above, a YYYYMMDD string will be added to the end of the filename.
  *
@@ -331,6 +334,24 @@ FileStreamRotator.addLogToAudit = function(logfile, audit) {
     return audit;
 };
 
+const rDatePlaceholder = /%DATE%/;
+
+/**
+ * append or interpolate timestamp to filename
+ * @param options
+ * @param options.filename
+ * @param options.date
+ * @param options.dateFormat
+ */
+function addTimestampToFilename(options) {
+    const {filename, date, dateFormat} = options;
+    var logfile = filename + (date ? '.' + date : '');
+    if (filename.match(rDatePlaceholder)) {
+        logfile = filename.replace(new RegExp(rDatePlaceholder, 'g'), date ? date : FileStreamRotator.getDate(null, dateFormat));
+    }
+    return logfile;
+}
+
 /**
  *
  * @param options
@@ -393,11 +414,11 @@ FileStreamRotator.getStream = function(options) {
         curDate = options.frequency ? self.getDate(frequencyMetaData, dateFormat) : '';
     }
 
-    var filename = options.filename;
+    const {filename, reserveFilename} = options;
     var oldFile = null;
-    var logfile = filename + (curDate ? '.' + curDate : '');
-    if (filename.match(/%DATE%/)) {
-        logfile = filename.replace(/%DATE%/g, curDate ? curDate : self.getDate(null, dateFormat));
+    var logfile = addTimestampToFilename({filename, curDate, dateFormat});
+    if (reserveFilename) {
+        logfile = filename.replace(new RegExp(rDatePlaceholder, 'g'), '');
     }
     var verbose = options.verbose !== undefined ? options.verbose : true;
     if (verbose) {
@@ -431,6 +452,9 @@ FileStreamRotator.getStream = function(options) {
                 curSize = lastLogFileStats.size;
             }
         }
+        if (logfile !== t_log && reserveFilename) {
+            fs.renameSync(logfile);
+        }
         logfile = t_log;
     }
 
@@ -456,9 +480,20 @@ FileStreamRotator.getStream = function(options) {
         stream.write = function(str, encoding) {
             var newDate = this.getDate(frequencyMetaData, dateFormat);
             if (newDate != curDate || (fileSize && curSize > fileSize)) {
+                if (reserveFilename) {
+                    let oldLogfile = addTimestampToFilename({filename, date: curDate, dateFormat});
+                    if (fileSize && curSize > fileSize) {
+                        fileCount++;
+                        oldLogfile += '.' + fileCount;
+                    } else {
+                        // reset file count
+                        fileCount = 0;
+                    }
+                    fs.renameSync(logfile);
+                }
                 var newLogfile = filename + (curDate ? '.' + newDate : '');
-                if (filename.match(/%DATE%/) && curDate) {
-                    newLogfile = filename.replace(/%DATE%/g, newDate);
+                if (filename.match(rDatePlaceholder) && curDate) {
+                    newLogfile = filename.replace(new RegExp(rDatePlaceholder, 'g'), newDate);
                 }
 
                 if (fileSize && curSize > fileSize) {
